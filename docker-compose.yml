@@ -28,8 +28,37 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  onpro-watch:
+    build: .
+    image: onpro-alertas:1.0
+    container_name: onpro-watch
+    restart: always
+    command: ["/app/onpro_watch.py", "--vigiar"]
+    environment:
+      - TZ=America/Fortaleza
+      - ONPRO_TZ=America/Fortaleza
+      # Janela de vigilância e intervalo entre consultas
+      - ONPRO_JANELA=07:00-19:00
+      - ONPRO_DIAS=1-5
+      - ONPRO_POLL=60
+      # Endpoints — CONFERIR host:porta da api-fast-onimus antes de subir
+      - ONPRO_API_URL=
+      - EVOLUTION_URL=https://evo.onimus.com.br/message/sendText/Onimus
+      - EVOLUTION_APIKEY=${EVOLUTION_APIKEY}
+    volumes:
+      - onpro_watch_state:/var/tmp/onpro_watch
+      - ./empresas.json:/app/config/empresas.json:ro
+    networks:
+      - evolution-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   onpro_state:
+  onpro_watch_state:
 
 networks:
   evolution-network:
