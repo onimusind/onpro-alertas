@@ -3,5 +3,12 @@
     "cnpj": "00000000000000",
     "nome": "Empresa Exemplo",
     "grupo_whatsapp": "000000000000000000@g.us"
+  },
+  {
+    "cnpj": "11111111111111",
+    "nome": "Outra Empresa",
+    "grupo_whatsapp": "111111111111111111@g.us",
+    "horarios": "08:00,13:00",
+    "dias": "1-6"
   }
 ]

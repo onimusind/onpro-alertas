@@ -14,6 +14,10 @@ Uso:
     python3 onpro_alerta.py --simular sem-inicio         # força o cenário de alerta com dados reais
     python3 onpro_alerta.py --input sample.json --empresa 12345678000199 --dry-run
     python3 onpro_alerta.py --agendar                    # fica residente, dispara em ONPRO_HORARIOS
+
+Agendamento (ONPRO_HORARIOS/ONPRO_DIAS) é global por padrão, mas cada empresa em
+empresas.json pode sobrescrever com os campos opcionais "horarios"/"dias" (mesmo
+formato das env vars).
 """
 
 from __future__ import annotations
@@ -216,7 +220,18 @@ def carregar_empresas(caminho: Path) -> list[dict]:
         faltando = obrigatorios - emp.keys()
         if faltando:
             raise RuntimeError(f"{caminho}[{i}]: faltando campo(s) {sorted(faltando)}")
+        try:
+            horarios_dias_empresa(emp)
+        except ValueError as e:
+            raise RuntimeError(f"{caminho}[{i}] ({emp.get('nome')}): {e}")
     return dados
+
+
+def horarios_dias_empresa(empresa: dict) -> tuple[list[tuple[int, int]], set[int]]:
+    """horarios/dias por empresa, com fallback pro default global (ONPRO_HORARIOS/ONPRO_DIAS)."""
+    horarios = parse_horarios(empresa.get("horarios") or HORARIOS)
+    dias = parse_dias(empresa.get("dias") or DIAS)
+    return horarios, dias
 
 
 # ----------------------------------------------------------------------------
@@ -354,7 +369,10 @@ def parse_horarios(txt: str) -> list[tuple[int, int]]:
         if not parte:
             continue
         h, _, m = parte.partition(":")
-        saida.append((int(h), int(m or 0)))
+        h, m = int(h), int(m or 0)
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            raise ValueError(f"horário fora da faixa em {txt!r}: {parte!r}")
+        saida.append((h, m))
     if not saida:
         raise ValueError(f"ONPRO_HORARIOS inválido: {txt!r}")
     return sorted(set(saida))
@@ -387,15 +405,25 @@ def proxima_execucao(agora: datetime, horarios, dias) -> datetime:
     raise RuntimeError("nenhum horário futuro encontrado")
 
 
+def esta_na_hora(agora: datetime, horarios, dias) -> bool:
+    return agora.weekday() in dias and (agora.hour, agora.minute) in horarios
+
+
 def agendar(empresas: list[dict], *, dedupe: bool = True) -> int:
-    horarios, dias = parse_horarios(HORARIOS), parse_dias(DIAS)
+    # (empresa, horarios, dias) resolvido uma vez — cada empresa pode ter seu
+    # próprio ONPRO_HORARIOS/ONPRO_DIAS via empresas.json, senão usa o default global.
+    agenda = [(empresa, *horarios_dias_empresa(empresa)) for empresa in empresas]
+
     signal.signal(signal.SIGTERM, _sinal)
     signal.signal(signal.SIGINT, _sinal)
-    log.info("agendador ativo | horários=%s | dias=%s | fuso=%s | empresas=%d",
-             HORARIOS, DIAS, TZ.key, len(empresas))
+    log.info("agendador ativo | fuso=%s | empresas=%d", TZ.key, len(empresas))
+    for empresa, horarios, dias in agenda:
+        log.info("  [%s] horários=%s dias=%s", empresa["nome"],
+                 empresa.get("horarios") or HORARIOS, empresa.get("dias") or DIAS)
 
     while not _parar:
-        alvo = proxima_execucao(datetime.now(TZ), horarios, dias)
+        agora = datetime.now(TZ)
+        alvo = min(proxima_execucao(agora, h, d) for _, h, d in agenda)
         log.info("próxima execução: %s", alvo.strftime("%d/%m/%Y %H:%M"))
 
         while not _parar and datetime.now(TZ) < alvo:
@@ -403,11 +431,15 @@ def agendar(empresas: list[dict], *, dedupe: bool = True) -> int:
 
         if _parar:
             break
-        log.info("--- disparo agendado ---")
-        try:
-            executar_todas(empresas, dedupe=dedupe)
-        except Exception as e:  # nunca deixa o agendador morrer
-            log.exception("erro não tratado na execução: %s", e)
+
+        agora = datetime.now(TZ).replace(second=0, microsecond=0)
+        devidas = [empresa for empresa, h, d in agenda if esta_na_hora(agora, h, d)]
+        if devidas:
+            log.info("--- disparo agendado: %s ---", ", ".join(e["nome"] for e in devidas))
+            try:
+                executar_todas(devidas, dedupe=dedupe)
+            except Exception as e:  # nunca deixa o agendador morrer
+                log.exception("erro não tratado na execução: %s", e)
         time.sleep(61)  # evita disparar duas vezes no mesmo minuto
 
     log.info("agendador encerrado")
