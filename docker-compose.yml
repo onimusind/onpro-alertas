@@ -1,0 +1,36 @@
+services:
+  onpro-alerta:
+    build: .
+    image: onpro-alertas:1.0
+    container_name: onpro-alerta
+    restart: always
+    command: ["/app/onpro_alerta.py", "--agendar"]
+    environment:
+      - TZ=America/Fortaleza
+      - ONPRO_TZ=America/Fortaleza
+      # Agendamento: HH:MM separados por vírgula. Dias 1=seg ... 7=dom
+      - ONPRO_HORARIOS=07:30
+      - ONPRO_DIAS=1-5
+      # Endpoints — CONFERIR host:porta da api-fast-onimus antes de subir
+      - ONPRO_API_URL=
+      - EVOLUTION_URL=https://evo.onimus.com.br/message/sendText/Onimus
+      - EVOLUTION_APIKEY=${EVOLUTION_APIKEY}
+    volumes:
+      # Persiste o anti-duplicata entre restarts do container
+      - onpro_state:/var/tmp/onpro_alerta
+      # Config das empresas — editar direto no host, não entra na imagem
+      - ./empresas.json:/app/config/empresas.json:ro
+    networks:
+      - evolution-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  onpro_state:
+
+networks:
+  evolution-network:
+    external: true

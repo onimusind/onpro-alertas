@@ -1,0 +1,35 @@
+[
+  {
+    "id": 481,
+    "cod_produto": "PT-0231",
+    "descricao_produto": "SUCO DE UVA INTEGRAL 1L - CX C/12",
+    "empresa": "00000000000000",
+    "data_inicio": "2026-08-19",
+    "status": "2",
+    "cod_ordem": "OP-10432",
+    "programado_linha": "5000.000",
+    "valor_auto": 1820
+  },
+  {
+    "id": 482,
+    "cod_produto": "PT-0455",
+    "descricao_produto": "REFRESCO EM PO MORANGO 25G - PCT C/50",
+    "empresa": "00000000000000",
+    "data_inicio": "2026-08-19",
+    "status": "1",
+    "cod_ordem": "OP-10433",
+    "programado_linha": "8000.000",
+    "valor_auto": 0
+  },
+  {
+    "id": 483,
+    "cod_produto": "PT-0198",
+    "descricao_produto": "GELEIA DE MOCOTO 300G - CX C/24",
+    "empresa": "00000000000000",
+    "data_inicio": "2026-08-19",
+    "status": "1",
+    "cod_ordem": "OP-10434",
+    "programado_linha": "3000.000",
+    "valor_auto": 0
+  }
+]
